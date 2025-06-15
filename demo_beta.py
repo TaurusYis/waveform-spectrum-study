@@ -8,34 +8,37 @@ from scipy.fft import fft, fftfreq, fftshift
 def sinusoidal_decomposition(signal, t, freq_list):
     magnitudes = []
     T = t[-1] - t[0]
+    dt = t[1] - t[0]
     for f in freq_list:
         cos_component = np.cos(2 * np.pi * f * t)
         sin_component = np.sin(2 * np.pi * f * t)
-        C = (2 / T) * np.trapezoid(signal * cos_component, t)
-        S = (2 / T) * np.trapezoid(signal * sin_component, t)
+        C = (2 / T) * np.sum(signal * cos_component) * dt
+        S = (2 / T) * np.sum(signal * sin_component) * dt
         A = np.sqrt(C**2 + S**2)
         magnitudes.append(A)
     return np.array(magnitudes)
 
 # ----- Plotting Function -----
 def update(val):
-    bit_rate = s_bitrate.val * 1e9
-    rise_time = s_risetime.val * 1e-12
-    sampling_rate = s_samplerate.val * 1e9
-    bit_period = 1 / bit_rate
-    dt = 1 / sampling_rate
-    t = np.arange(0, 10 * bit_period, dt)
+    signal_freq = s_frequency.val  # in Hz
+    rise_time = s_risetime.val * 1e-12  # ps to s
+    sampling_rate = s_samplerate.val  # already in Hz
 
+    T = 1 / signal_freq
+    dt = 1 / sampling_rate
+    t = np.arange(0, 10 * T, dt)
+
+    # Generate square wave with finite rise/fall time using erf
     signal = np.zeros_like(t)
-    for n in range(0, int(len(t) * dt / (bit_period / 2))):
-        edge_time = n * (bit_period / 2)
+    for n in range(20):  # 10 cycles, 2 transitions per cycle
+        edge_time = n * (T / 2)
         sign = 1 if n % 2 == 0 else -1
         signal += 0.5 * (1 + sign * erf((t - edge_time) / (rise_time / 2.0)))
 
-    # Time domain
+    # Plot time domain
     ax1.cla()
     ax1.plot(t * 1e9, signal)
-    ax1.set_title("DDR Signal (Time Domain)")
+    ax1.set_title("Signal (Time Domain)")
     ax1.set_xlabel("Time (ns)")
     ax1.set_ylabel("Voltage")
     ax1.grid(True)
@@ -52,7 +55,7 @@ def update(val):
     ax2.set_xlim(0, sampling_rate / 2 / 1e9)
     ax2.grid(True)
 
-    # Sinusoidal Decomposition
+    # Manual decomposition
     freqs_manual = np.linspace(0, 5e9, 300)
     spectrum_manual = sinusoidal_decomposition(signal, t, freqs_manual)
     ax3.cla()
@@ -64,22 +67,23 @@ def update(val):
 
     fig.canvas.draw_idle()
 
+
 # ----- Figure and Layout -----
 fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 9))
 plt.subplots_adjust(left=0.1, bottom=0.3)
 
 # ----- Sliders -----
 axcolor = 'lightgoldenrodyellow'
-ax_bitrate = plt.axes([0.1, 0.2, 0.8, 0.03], facecolor=axcolor)
-ax_risetime = plt.axes([0.1, 0.15, 0.8, 0.03], facecolor=axcolor)
-ax_samplerate = plt.axes([0.1, 0.1, 0.8, 0.03], facecolor=axcolor)
+ax_freq = plt.axes([0.1, 0.25, 0.8, 0.03], facecolor=axcolor)
+ax_risetime = plt.axes([0.1, 0.2, 0.8, 0.03], facecolor=axcolor)
+ax_samplerate = plt.axes([0.1, 0.15, 0.8, 0.03], facecolor=axcolor)
 
-s_bitrate = Slider(ax_bitrate, 'Bit Rate (Gbps)', 0.5, 10.0, valinit=1.0, valstep=0.1)
+s_frequency = Slider(ax_freq, 'Signal Freq (Hz)', 1e6, 10e9, valinit=1e9, valstep=1e6)
 s_risetime = Slider(ax_risetime, 'Rise Time (ps)', 10, 200, valinit=50, valstep=1)
-s_samplerate = Slider(ax_samplerate, 'Sample Rate (Gsps)', 2.0, 100.0, valinit=10.0, valstep=0.5)
+s_samplerate = Slider(ax_samplerate, 'Sample Rate (Hz)', 2e9, 40e9, valinit=10e9, valstep=1e9)
 
 # ----- Link Sliders to Update -----
-s_bitrate.on_changed(update)
+s_frequency.on_changed(update)
 s_risetime.on_changed(update)
 s_samplerate.on_changed(update)
 
