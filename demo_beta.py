@@ -65,8 +65,9 @@ def update(val):
     for n in range(2 * num_cycles):
         edge_time = n * (T / 2)
         sign = 1 if n % 2 == 0 else -1
-        signal += 0.5 * (1 + sign * erf((t - edge_time) / (rise_time / 2.0)))
-
+        signal += 0.5 * ( sign * erf((t - edge_time) / (rise_time / 2.0)) )
+    signal = signal - 0.5 # remove DC offset
+    
     ax1.cla()
     ax1.plot(t * 1e9, signal, 'o-', markersize=2)
     ax1.set_title("Time-Domain Signal")
@@ -85,7 +86,7 @@ def update(val):
     ax2.set_xlim(0, sampling_rate / 2 / 1e9)
     ax2.grid(True)
 
-    freqs_manual = np.linspace(0, 5e9, 400)
+    freqs_manual = np.linspace(0, sampling_rate, 5000)
     mag_manual, cos_weights, sin_weights = sinusoidal_decomposition(signal, t, freqs_manual)
     ax3.cla()
     ax3.plot(freqs_manual / 1e9, 20 * np.log10(mag_manual / np.max(mag_manual)))
